@@ -68,6 +68,92 @@ describe('FactoryGirl', function () {
     });
   });
 
+  describe('#extend', function () {
+    let factoryGirl;
+    beforeEach(function () {
+      factoryGirl = new FactoryGirl();
+      factoryGirl.define('parent', DummyModel, {
+        parent: true,
+        override: 'parent',
+      });
+    });
+
+    it('can extend defined factory', async function () {
+      factoryGirl.extend('parent', 'factory1', {
+        child: true,
+        override: 'child',
+      });
+      expect(factoryGirl.getFactory('factory1', false)).to.exist;
+      expect(factoryGirl.getFactory('factory1', false))
+        .to.be.an.instanceof(Factory);
+      const model = await factoryGirl.build('factory1');
+      expect(model).to.be.an.instanceOf(Object);
+      expect(model.attrs.parent).to.equal(true, 'initializer is inherited');
+      expect(model.attrs.child).to.equal(true, 'child initializer');
+      expect(model.attrs.override).to.equal('child', 'child overrides parent');
+    });
+
+    it('model can be overridden', function () {
+      factoryGirl.extend('parent', 'factory1', {
+        child: true,
+        override: 'child',
+      }, {
+        model: Object,
+      });
+      const model = factoryGirl.build('factory1');
+      expect(model).to.be.an.instanceOf(Object);
+    });
+
+    it('can not define factory with same name', function () {
+      function nameRepeated() {
+        factoryGirl.extend('parent', 'parent', {});
+      }
+      expect(nameRepeated).to.throw(Error);
+    });
+
+    it('can extend with an initializer function', async function () {
+      factoryGirl.define('parentWithObjectInitializer', Object, {
+        parent: true,
+      });
+      factoryGirl.extend(
+        'parentWithObjectInitializer',
+        'childWithFunctionInitializer',
+        function (buildOptions) {
+          return { child: true, option: buildOptions.option };
+        }
+      );
+      const model = await factoryGirl.build(
+        'childWithFunctionInitializer',
+        {},
+        { option: true }
+      );
+      expect(model.parent).to.equal(true, 'parent initializer');
+      expect(model.child).to.equal(true, 'child initializer');
+      expect(model.option).to.equal(true, 'build options');
+    });
+
+    it('can extend a parent that has an initializer function', async function () {
+      factoryGirl.define('parentWithFunctionInitializer', Object, function (
+        buildOptions
+      ) {
+        return { parent: true, option: buildOptions.option };
+      });
+      factoryGirl.extend(
+        'parentWithFunctionInitializer',
+        'childWithObjectInitializer',
+        { child: true }
+      );
+      const model = await factoryGirl.build(
+        'childWithObjectInitializer',
+        {},
+        { option: true }
+      );
+      expect(model.parent).to.equal(true, 'parent initializer');
+      expect(model.child).to.equal(true, 'child initializer');
+      expect(model.option).to.equal(true, 'build options');
+    });
+  });
+
   describe('#getFactory', function () {
     const factoryGirl = new FactoryGirl();
     factoryGirl.define('factory1', DummyModel, {});
@@ -601,7 +687,7 @@ describe('FactoryGirl', function () {
       expect(Sequence.sequences['some.id.1']).to.exist;
 
 
-      factoryGirl.cleanUp().then(() => {
+      return factoryGirl.cleanUp().then(() => {
         expect(spy1).to.have.callCount(4);
         expect(spy2).to.have.callCount(1);
         expect(spy2).to.have.been.calledWith(dummyModel2, DummyModel);

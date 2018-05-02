@@ -112,7 +112,7 @@ Currently the supported options are:
 #### `afterBuild: function(model, attrs, buildOptions)`
 
 Provides a function that is called after the model is built.
-The function should return the instance or throw an error. For asynchronous functions, it should return a promise that either resolves with the instance or rejects with the error.
+The function should return the instance or a Promise for the instance.
 
 #### `afterCreate: function(model, attrs, buildOptions)`
 
@@ -138,6 +138,23 @@ factory.define('user', User, {foo: 'bar'}, {
   }
 });
 ```
+
+### Extending Factories
+
+You can extend a factory using `#extend`:
+
+```js
+factory.define('user', User, { username: 'Bob', expired: false });
+factory.extend('user', 'expiredUser', { expired: true });
+factory.build('expiredUser').then(user => {
+  console.log(user); // => User { username: 'Bob', expired: true });
+});
+```
+
+### `#extend(parent, name, initializer, options = {})`
+
+The `#extend` method takes the same options as `#define` except you 
+can provide a different `Model` using `options.model`.
 
 ## Using Factories
 
@@ -172,8 +189,6 @@ factory.attrsMany('post', 5, [{title: 'foo1'}, {title: 'foo2'}]).then(postAttrsA
 });
 ```
 
-Refer [API docs](docs/api.md) for complete API documentation.
-
 ### Factory#build
 
 Builds a new model instance that is not persisted.
@@ -204,6 +219,8 @@ factory.create('post').then(post => {
 });
 ```
 
+### Factory#createMany(name, num, attrs, buildOptions = {})
+
 The createMany version creates an array of model instances.
 
 ```javascript
@@ -213,7 +230,13 @@ factory.createMany('post', 5).then(postsArray => {
 ```
 
 Similar to `Factory#attrs` and `Factory#build`, you can pass `attrs` to override and
-`buildOptions`.
+`buildOptions`. If you pass an array of `attrs` then each element of the array will be
+used as the attrs for a each model created.
+
+### Factory#createMany(name, attrs, buildOptions = {})
+
+If you can pass an array of `attrs` then you can omit `num` and the length of the array
+will be used.
 
 ### Factory#cleanUp
 
@@ -227,7 +250,9 @@ specific models, or as the 'default adapter', which is used for any models for w
 adapter has not been specified. See the adapter docs for usage, but typical usage is:
 
 ```javascript
-const adapter = new factory.MongooseAdapter();
+const FactoryGirl = require('factory-girl');
+const factory = FactoryGirl.factory;
+const adapter = new FactoryGirl.MongooseAdapter();
 
 // use the mongoose adapter as the default adapter
 factory.setAdapter(adapter);

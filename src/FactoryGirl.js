@@ -7,7 +7,6 @@ import AssocAttrsMany from './generators/AssocAttrsMany';
 import ChanceGenerator from './generators/ChanceGenerator';
 import OneOf from './generators/OneOf';
 import DefaultAdapter from './adapters/DefaultAdapter';
-import bluebird from 'bluebird';
 
 export default class FactoryGirl {
   factories = {};
@@ -32,14 +31,46 @@ export default class FactoryGirl {
     this.options = options;
   }
 
-  define(name, Model, initializer, options) {
+  define(name, Model, initializer, options = {}) {
     if (this.getFactory(name, false)) {
       throw new Error(`Factory ${name} already defined`);
     }
-    this.factories[name] = new Factory(Model, initializer, options);
+    const factory = this.factories[name] = new Factory(Model, initializer, options);
+    return factory;
   }
 
-  async attrs(name, attrs, buildOptions) {
+  extend(parent, name, childInitializer, options = {}) {
+    if (this.getFactory(name, false)) {
+      throw new Error(`Factory ${name} already defined`);
+    }
+    const parentFactory = this.getFactory(parent, true);
+    const Model = options.model || parentFactory.Model;
+    let jointInitializer;
+
+    function resolveInitializer(initializer, buildOptions) {
+      return typeof initializer === 'function' ? initializer(buildOptions) : initializer;
+    }
+
+    if (
+      typeof parentFactory.initializer === 'function' ||
+      typeof childInitializer === 'function'
+    ) {
+      jointInitializer = function initializer(buildOptions = {}) {
+        return Object.assign(
+          {},
+          resolveInitializer(parentFactory.initializer, buildOptions),
+          resolveInitializer(childInitializer, buildOptions)
+        );
+      };
+    } else {
+      jointInitializer = Object.assign({}, parentFactory.initializer, childInitializer);
+    }
+
+    const factory = this.factories[name] = new Factory(Model, jointInitializer, options);
+    return factory;
+  }
+
+  async attrs(name, attrs, buildOptions = {}) {
     return this.getFactory(name).attrs(attrs, buildOptions);
   }
 
@@ -53,7 +84,7 @@ export default class FactoryGirl {
       ));
   }
 
-  async create(name, attrs, buildOptions) {
+  async create(name, attrs, buildOptions = {}) {
     const adapter = this.getAdapter(name);
     return this.getFactory(name)
       .create(adapter, attrs, buildOptions)
@@ -64,11 +95,11 @@ export default class FactoryGirl {
       ));
   }
 
-  attrsMany(name, num, attrs, buildOptions) {
+  attrsMany(name, num, attrs, buildOptions = {}) {
     return this.getFactory(name).attrsMany(num, attrs, buildOptions);
   }
 
-  async buildMany(name, num, attrs, buildOptions) {
+  async buildMany(name, num, attrs, buildOptions = {}) {
     const adapter = this.getAdapter(name);
     return this.getFactory(name)
       .buildMany(adapter, num, attrs, buildOptions)
@@ -80,7 +111,7 @@ export default class FactoryGirl {
       ));
   }
 
-  async createMany(name, num, attrs, buildOptions) {
+  async createMany(name, num, attrs, buildOptions = {}) {
     const adapter = this.getAdapter(name);
     return this.getFactory(name)
       .createMany(adapter, num, attrs, buildOptions)
@@ -95,7 +126,7 @@ export default class FactoryGirl {
 
   getFactory(name, throwError = true) {
     if (!this.factories[name] && throwError) {
-      throw new Error(`Invalid factory '${name} requested`);
+      throw new Error(`Invalid factory '${name}' requested`);
     }
     return this.factories[name];
   }
@@ -126,9 +157,10 @@ export default class FactoryGirl {
     for (const c of this.created) {
       createdArray.push(c);
     }
-    const promise = bluebird.each(
-      createdArray,
-      ([adapter, model]) => adapter.destroy(model, model.constructor)
+    const promise = createdArray.reduce(
+      (prev, [adapter, model]) =>
+        prev.then(() => adapter.destroy(model, model.constructor)),
+      Promise.resolve()
     );
     this.created.clear();
     this.resetSeq();

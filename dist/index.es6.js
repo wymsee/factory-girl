@@ -4,6 +4,7 @@ import _extends from 'babel-runtime/helpers/extends';
 import _Promise from 'babel-runtime/core-js/promise';
 import _regeneratorRuntime from 'babel-runtime/regenerator';
 import _asyncToGenerator from 'babel-runtime/helpers/asyncToGenerator';
+import _Object$assign from 'babel-runtime/core-js/object/assign';
 import _Set from 'babel-runtime/core-js/set';
 import _classCallCheck from 'babel-runtime/helpers/classCallCheck';
 import _createClass from 'babel-runtime/helpers/createClass';
@@ -13,8 +14,6 @@ import _Object$getPrototypeOf from 'babel-runtime/core-js/object/get-prototype-o
 import _possibleConstructorReturn from 'babel-runtime/helpers/possibleConstructorReturn';
 import _inherits from 'babel-runtime/helpers/inherits';
 import Chance from 'chance';
-import bluebird from 'bluebird';
-import _Object$assign from 'babel-runtime/core-js/object/assign';
 
 /* eslint-disable no-underscore-dangle */
 function asyncPopulate(target, source) {
@@ -32,7 +31,7 @@ function asyncPopulate(target, source) {
       promise = asyncPopulate(target[attr], source[attr]);
     } else if (source[attr] === null) {
       target[attr] = null;
-    } else if (_typeof(source[attr]) === 'object' && !source[attr]._bsontype) {
+    } else if (isPlainObject(source[attr])) {
       target[attr] = target[attr] || {};
       promise = asyncPopulate(target[attr], source[attr]);
     } else if (typeof source[attr] === 'function') {
@@ -49,6 +48,11 @@ function asyncPopulate(target, source) {
   return _Promise.all(promises);
 }
 /* eslint-enable no-underscore-dangle */
+
+var objectProto = _Object$getPrototypeOf({});
+function isPlainObject(o) {
+  return _Object$getPrototypeOf(o) === objectProto;
+}
 
 var Factory = function () {
   function Factory(Model, initializer) {
@@ -289,10 +293,15 @@ var Factory = function () {
           while (1) {
             switch (_context5.prev = _context5.next) {
               case 0:
-                _context5.next = 2;
+                if (Array.isArray(num)) {
+                  buildOptionsArray = attrsArray;
+                  attrsArray = num;
+                  num = attrsArray.length;
+                }
+                _context5.next = 3;
                 return this.buildMany(adapter, num, attrsArray, buildOptionsArray);
 
-              case 2:
+              case 3:
                 models = _context5.sent;
                 savedModels = models.map(function (model) {
                   return adapter.save(model, _this3.Model);
@@ -303,7 +312,7 @@ var Factory = function () {
                   })) : createdModels;
                 }));
 
-              case 5:
+              case 6:
               case 'end':
                 return _context5.stop();
             }
@@ -616,11 +625,16 @@ var ChanceGenerator = function (_Generator) {
 
   _createClass(ChanceGenerator, [{
     key: 'generate',
-    value: function generate(chanceMethod, options) {
+    value: function generate(chanceMethod) {
       if (typeof chance[chanceMethod] !== 'function') {
         throw new Error('Invalid chance method requested');
       }
-      return chance[chanceMethod](options);
+
+      for (var _len = arguments.length, options = Array(_len > 1 ? _len - 1 : 0), _key = 1; _key < _len; _key++) {
+        options[_key - 1] = arguments[_key];
+      }
+
+      return chance[chanceMethod].apply(chance, options);
     }
   }]);
 
@@ -797,16 +811,33 @@ var FactoryGirl = function () {
 
   _createClass(FactoryGirl, [{
     key: 'define',
-    value: function define(name, Model, initializer, options) {
+    value: function define(name, Model, initializer) {
+      var options = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : {};
+
       if (this.getFactory(name, false)) {
         throw new Error('Factory ' + name + ' already defined');
       }
-      this.factories[name] = new Factory(Model, initializer, options);
+      var factory = this.factories[name] = new Factory(Model, initializer, options);
+      return factory;
+    }
+  }, {
+    key: 'extend',
+    value: function extend(parent, name, initializer) {
+      var options = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : {};
+
+      if (this.getFactory(name, false)) {
+        throw new Error('Factory ' + name + ' already defined');
+      }
+      var parentFactory = this.getFactory(parent, true);
+      var Model = options.model || parentFactory.Model;
+      var factory = this.factories[name] = new Factory(Model, _Object$assign({}, parentFactory.initializer, initializer), options);
+      return factory;
     }
   }, {
     key: 'attrs',
     value: function () {
-      var _ref = _asyncToGenerator(_regeneratorRuntime.mark(function _callee(name, _attrs, buildOptions) {
+      var _ref = _asyncToGenerator(_regeneratorRuntime.mark(function _callee(name, _attrs) {
+        var buildOptions = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
         return _regeneratorRuntime.wrap(function _callee$(_context) {
           while (1) {
             switch (_context.prev = _context.next) {
@@ -821,7 +852,7 @@ var FactoryGirl = function () {
         }, _callee, this);
       }));
 
-      function attrs(_x2, _x3, _x4) {
+      function attrs(_x4, _x5) {
         return _ref.apply(this, arguments);
       }
 
@@ -853,7 +884,7 @@ var FactoryGirl = function () {
         }, _callee2, this);
       }));
 
-      function build(_x5) {
+      function build(_x7) {
         return _ref2.apply(this, arguments);
       }
 
@@ -862,9 +893,10 @@ var FactoryGirl = function () {
   }, {
     key: 'create',
     value: function () {
-      var _ref3 = _asyncToGenerator(_regeneratorRuntime.mark(function _callee3(name, attrs, buildOptions) {
+      var _ref3 = _asyncToGenerator(_regeneratorRuntime.mark(function _callee3(name, attrs) {
         var _this3 = this;
 
+        var buildOptions = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
         var adapter;
         return _regeneratorRuntime.wrap(function _callee3$(_context3) {
           while (1) {
@@ -885,7 +917,7 @@ var FactoryGirl = function () {
         }, _callee3, this);
       }));
 
-      function create(_x8, _x9, _x10) {
+      function create(_x10, _x11) {
         return _ref3.apply(this, arguments);
       }
 
@@ -893,15 +925,18 @@ var FactoryGirl = function () {
     }()
   }, {
     key: 'attrsMany',
-    value: function attrsMany(name, num, attrs, buildOptions) {
+    value: function attrsMany(name, num, attrs) {
+      var buildOptions = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : {};
+
       return this.getFactory(name).attrsMany(num, attrs, buildOptions);
     }
   }, {
     key: 'buildMany',
     value: function () {
-      var _ref4 = _asyncToGenerator(_regeneratorRuntime.mark(function _callee4(name, num, attrs, buildOptions) {
+      var _ref4 = _asyncToGenerator(_regeneratorRuntime.mark(function _callee4(name, num, attrs) {
         var _this4 = this;
 
+        var buildOptions = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : {};
         var adapter;
         return _regeneratorRuntime.wrap(function _callee4$(_context4) {
           while (1) {
@@ -922,7 +957,7 @@ var FactoryGirl = function () {
         }, _callee4, this);
       }));
 
-      function buildMany(_x11, _x12, _x13, _x14) {
+      function buildMany(_x14, _x15, _x16) {
         return _ref4.apply(this, arguments);
       }
 
@@ -931,9 +966,10 @@ var FactoryGirl = function () {
   }, {
     key: 'createMany',
     value: function () {
-      var _ref5 = _asyncToGenerator(_regeneratorRuntime.mark(function _callee5(name, num, attrs, buildOptions) {
+      var _ref5 = _asyncToGenerator(_regeneratorRuntime.mark(function _callee5(name, num, attrs) {
         var _this5 = this;
 
+        var buildOptions = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : {};
         var adapter;
         return _regeneratorRuntime.wrap(function _callee5$(_context5) {
           while (1) {
@@ -956,7 +992,7 @@ var FactoryGirl = function () {
         }, _callee5, this);
       }));
 
-      function createMany(_x15, _x16, _x17, _x18) {
+      function createMany(_x18, _x19, _x20) {
         return _ref5.apply(this, arguments);
       }
 
@@ -1046,13 +1082,15 @@ var FactoryGirl = function () {
         }
       }
 
-      var promise = bluebird.each(createdArray, function (_ref6) {
+      var promise = createdArray.reduce(function (prev, _ref6) {
         var _ref7 = _slicedToArray(_ref6, 2),
             adapter = _ref7[0],
             model = _ref7[1];
 
-        return adapter.destroy(model, model.constructor);
-      });
+        return prev.then(function () {
+          return adapter.destroy(model, model.constructor);
+        });
+      }, _Promise.resolve());
       this.created.clear();
       this.resetSeq();
       return promise;
