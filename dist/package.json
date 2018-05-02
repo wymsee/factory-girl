@@ -1,12 +1,15 @@
 {
-  "name": "sos-factory-girl",
+  "name": "@synconset/factory-girl",
   "description": "A factory library for Node.js and JavaScript inspired by factory_girl",
   "main": "./src/index",
   "author": [
     "@aexmachina",
     "@chetanism"
   ],
-  "version": "5.0.1",
+  "publishConfig": {
+    "access": "public"
+  },
+  "version": "5.0.2",
   "keywords": [
     "factory",
     "test",
