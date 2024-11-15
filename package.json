@@ -1,5 +1,5 @@
 {
-  "name": "factory-girl",
+  "name": "@synconset/factory-girl",
   "description": "A factory library for Node.js and JavaScript inspired by factory_girl",
   "main": "index.js",
   "author": [
